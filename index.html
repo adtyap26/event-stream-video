@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Analytics SDK Test</title>
+  
+  <!-- Video.js CSS -->
+  <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+  
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .video-container {
+      margin-bottom: 30px;
+    }
+    
+    .controls {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 5px;
+    }
+    
+    .event-log {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 12px;
+      background: #f9f9f9;
+    }
+    
+    .event-item {
+      margin-bottom: 5px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .event-time {
+      color: #666;
+    }
+    
+    .event-name {
+      font-weight: bold;
+      color: #0066cc;
+    }
+    
+    button {
+      padding: 8px 12px;
+      margin-right: 10px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    button:hover {
+      background: #0055aa;
+    }
+  </style>
+</head>
+<body>
+  <h1>Video Analytics SDK Test</h1>
+  
+  <div class="video-container">
+    <video
+      id="my-video"
+      class="video-js vjs-default-skin"
+      controls
+      preload="auto"
+      width="640"
+      height="360"
+      poster="https://vjs.zencdn.net/v/oceans.png"
+      data-video-id="oceans-video">
+      <source src="https://vjs.zencdn.net/v/oceans.mp4" type="video/mp4" />
+      <p class="vjs-no-js">
+        To view this video please enable JavaScript, and consider upgrading to a
+        web browser that <a href="https://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
+      </p>
+    </video>
+  </div>
+  
+  <div class="controls">
+    <h3>SDK Controls</h3>
+    <button id="init-sdk">Initialize SDK</button>
+    <button id="track-player">Track Player</button>
+    <button id="send-custom-event">Send Custom Event</button>
+    <button id="clear-log">Clear Log</button>
+  </div>
+  
+  <h3>Event Log</h3>
+  <div class="event-log" id="event-log"></div>
+  
+  <!-- Video.js -->
+  <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
+  
+  <!-- Video Analytics SDK -->
+  <script src="video-analytics.js"></script>
+  
+  <script>
+    // Initialize Video.js
+    const player = videojs('my-video');
+    
+    // UI elements
+    const eventLog = document.getElementById('event-log');
+    const initButton = document.getElementById('init-sdk');
+    const trackButton = document.getElementById('track-player');
+    const customEventButton = document.getElementById('send-custom-event');
+    const clearLogButton = document.getElementById('clear-log');
+    
+    // Log events to UI
+    function logEvent(message) {
+      const time = new Date().toLocaleTimeString();
+      const eventItem = document.createElement('div');
+      eventItem.className = 'event-item';
+      eventItem.innerHTML = `<span class="event-time">[${time}]</span> <span class="event-name">${message}</span>`;
+      eventLog.appendChild(eventItem);
+      eventLog.scrollTop = eventLog.scrollHeight;
+    }
+    
+    // Override SDK log function to display in UI
+    const originalLog = VideoAnalytics.log;
+    VideoAnalytics.log = function(...args) {
+      originalLog.apply(VideoAnalytics, args);
+      logEvent(args.join(' '));
+    };
+    
+    // Button handlers
+    initButton.addEventListener('click', () => {
+      VideoAnalytics.init('test-client-123', {
+        apiEndpoint: 'http://localhost:8080/api/v1/events',
+        debug: true,
+        autoDetect: false, // We'll manually track for this demo
+        batchSize: 3, // Small batch size for testing
+        batchInterval: 10000 // 10 seconds
+      });
+      logEvent('SDK initialized');
+    });
+    
+    trackButton.addEventListener('click', () => {
+      VideoAnalytics.trackPlayer(player, 'oceans-video');
+      logEvent('Player tracking started');
+    });
+    
+    customEventButton.addEventListener('click', () => {
+      // Create a custom event if SDK is initialized
+      if (VideoAnalytics.getSessionId()) {
+        const customEvent = {
+          eventName: 'customEvent',
+          videoId: 'oceans-video',
+          timestamp: new Date().toISOString(),
+          sessionId: VideoAnalytics.getSessionId(),
+          ...VideoAnalytics.getUserIdentifiers(),
+          customData: {
+            action: 'button-click',
+            label: 'Custom event from UI',
+            value: Math.floor(Math.random() * 100)
+          }
+        };
+        
+        // Add to queue
+        window.VideoAnalytics.eventQueue.push(customEvent);
+        logEvent('Custom event added to queue');
+      } else {
+        logEvent('SDK not initialized. Cannot send custom event.');
+      }
+    });
+    
+    clearLogButton.addEventListener('click', () => {
+      eventLog.innerHTML = '';
+    });
+    
+    // Log page load
+    logEvent('Test page loaded. Click "Initialize SDK" to start.');
+  </script>
+</body>
+</html>
+
